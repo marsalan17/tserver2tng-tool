@@ -1,0 +1,181 @@
+# TServer to TNG Translator - Configuration File
+# 
+# CUSTOMIZATION:
+# - Each user should update the paths below to match their workspace
+# - Or use --tserver-path option when running the tool
+#
+# Example:
+#   python main.py ip gfx --tserver-path /home/user/workspace/diag_gpu_ariel
+
+# Default paths (customize these for your environment)
+# Users can override via CLI: --tserver-path /your/path
+paths:
+  # Path to TServer source code (diag_gpu_ariel)
+  # Set this to your workspace path, or use --tserver-path option
+  tserver_base: ""  # e.g., "/data/username/workspace/diag_gpu_ariel"
+  
+  # Path to TNG source code (diag_tng_canis)
+  tng_base: ""      # e.g., "/data/username/workspace/diag_tng_canis"
+
+# IP Block Configurations
+# Each IP block has its associated TServer test suites
+ip_blocks:
+  # Graphics Core (GFX)
+  gfx:
+    tserver_suites:
+      - "suite/gpu/gfxutil"
+      - "suite/gpu/stress3d"
+      - "suite/gpu/raytracing"
+    tng_output: "engine/gfx/test"
+    feature: "gfx"
+    sub_characteristics:
+      - "shader"
+      - "compute"
+      - "graphics"
+
+  # Display (DCE/DCN)
+  display:
+    tserver_suites:
+      - "suite/gpu/dce_pcnt"
+      - "suite/gpu/display"
+      - "suite/gpu/dout"
+      - "suite/gpu/dpp"
+      - "suite/gpu/mpc"
+      - "suite/gpu/otg"
+      - "suite/gpu/dsc"
+      - "suite/gpu/dmu"
+      - "suite/gpu/dwb"
+      - "suite/gpu/fmt"
+      - "suite/gpu/dio"
+    tng_output: "engine/display/test"
+    feature: "display"
+    sub_characteristics:
+      - "dcn"
+      - "dce"
+      - "dsc"
+
+  # Video Codec (VCN)
+  vcn:
+    tserver_suites:
+      - "suite/gpu/vcn"
+    tng_output: "engine/vcn/test"
+    feature: "vcn"
+    sub_characteristics:
+      - "decode"
+      - "encode"
+
+  # Memory Controller (GMC/UMC)
+  memory:
+    tserver_suites:
+      - "suite/gpu/umc"
+      - "suite/gpu/hdp"
+    tng_output: "engine/memorysubsystem/test"
+    feature: "memory"
+    sub_characteristics:
+      - "umc"
+      - "gmc"
+      - "hdp"
+
+  # SDMA
+  sdma:
+    tserver_suites:
+      - "suite/gpu/sdma"
+      - "suite/gpu/nsdma"
+    tng_output: "engine/gfx/sdma/test"
+    feature: "sdma"
+    sub_characteristics:
+      - "dma"
+      - "copy"
+
+  # Power Management (PM/SMU)
+  pm:
+    tserver_suites:
+      - "suite/gpu/pm"
+    tng_output: "engine/pmm/test"
+    feature: "pm"
+    sub_characteristics:
+      - "smu"
+      - "power"
+      - "thermal"
+
+  # PCIe
+  pcie:
+    tserver_suites:
+      - "suite/gpu/pcie"
+    tng_output: "engine/pci/test"
+    feature: "pcie"
+    sub_characteristics:
+      - "link"
+      - "config"
+
+  # IOMMU
+  iommu:
+    tserver_suites:
+      - "suite/cpu/iommu"
+      - "suite/cpu/iohc"
+    tng_output: "engine/iohub/test"
+    feature: "iommu"
+    sub_characteristics:
+      - "translation"
+      - "dma"
+
+  # Security (ASP/PSP)
+  security:
+    tserver_suites:
+      - "suite/nbridge/asp"
+      - "suite/nbridge/pspif"
+    tng_output: "engine/securitylib/test"
+    feature: "security"
+    sub_characteristics:
+      - "psp"
+      - "asp"
+
+  # Data Fabric (DF)
+  df:
+    tserver_suites:
+      - "suite/nbridge/df"
+    tng_output: "engine/support/test"
+    feature: "df"
+    sub_characteristics:
+      - "fabric"
+      - "coherency"
+
+  # ACP/Audio
+  acp:
+    tserver_suites:
+      - "suite/gpu/acp_az"
+    tng_output: "engine/acp/test"
+    feature: "acp"
+    sub_characteristics:
+      - "audio"
+      - "hdmi"
+
+  # PHY
+  phy:
+    tserver_suites:
+      - "suite/gpu/phy"
+    tng_output: "engine/display/test"
+    feature: "phy"
+    sub_characteristics:
+      - "dp"
+      - "hdmi"
+
+  # Framework/Common
+  framework:
+    tserver_suites:
+      - "suite/gpu/fss"
+      - "suite/gpu/tcore2"
+    tng_output: "engine/support/test"
+    feature: "framework"
+    sub_characteristics:
+      - "sanity"
+      - "infrastructure"
+
+# Output settings
+output:
+  # Generate AI context files by default
+  generate_ai_context: true
+  # Number of parallel workers for batch processing
+  batch_workers: 4
+  # Create subdirectories per test
+  create_subdirs: true

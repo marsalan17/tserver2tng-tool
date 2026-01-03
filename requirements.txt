@@ -1,0 +1,7 @@
+# TServer to TNG Translator Tool
+# No external dependencies required - uses Python standard library only
+# Compatible with Python 3.6+
+
+# PyYAML is typically pre-installed, but listed for completeness
+PyYAML>=5.0
+

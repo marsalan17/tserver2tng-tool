@@ -1,0 +1,152 @@
+# API Mappings between TServer and TNG
+# This file defines how TServer APIs map to TNG equivalents
+
+# Test Framework Mappings
+test_framework:
+  base_class:
+    tserver: "ts::Test"
+    tng: "tng::test::MonolithicTest"
+  
+  result_type:
+    tserver: "ts::Test::Result"
+    tng: "tng::test::Monitor"
+  
+  registration:
+    tserver: "TServerTestInstance(name, class)"
+    tng: |
+      constexpr tng::test::impl::MonolithicTestSpecification<ClassName> k_TestSpec;
+      const bool k_TestRegistered = tng::test::registerTest(k_TestSpec);
+  
+  setup:
+    tserver: "// In constructor"
+    tng: "tng::test::SetUpResult setUp(tng::test::ExecutionContext& context) final;"
+  
+  main_function:
+    tserver: "Result Main()"
+    tng: "tng::test::Monitor run(const tng::test::ExecutionContext& context) override"
+
+# Parameter Mappings
+parameters:
+  declaration:
+    tserver: 'Parameter<TYPE>("name", default)'
+    tng: |
+      struct ParamName : diag::value::ScalarValue<TYPE> {
+          static constexpr std::string_view k_Name = "param_name";
+      };
+  
+  access:
+    tserver: 'Parameter<TYPE>("name")'
+    tng: "m_parameters.get<ParamName>()"
+  
+  optional:
+    tserver: 'ParameterOpt<TYPE>("name")'
+    tng: "std::optional wrapper in Parameters struct"
+
+# Device/HAL Access
+device_access:
+  target_active:
+    tserver: "TargetActive()"
+    tng: "// Use m_device reservation from constructor"
+  
+  get_component:
+    tserver: "TargetActive()->GetComponent<ComponentType>()"
+    tng: "tng::hal::allocateEngineDirectly<EngineType>(*m_device, \"ENGINE_NAME\")"
+  
+  tcore_process:
+    tserver: "TargetActive()->GetComponent<TcoreInterface>().GetTcoreProcess()"
+    tng: "// Use tng::hal::getHal() and device reservations"
+  
+  hal_gpu:
+    tserver: "proc->Get<HalGpu>()"
+    tng: "// Use tng::hal::Device directly"
+
+# Memory Operations
+memory:
+  palloc:
+    tserver: "env::System::palloc(size, start, end, align, cache_type)"
+    tng: |
+      auto& localNode = tng::hal::getHal().getLocalNode();
+      auto buffer = localNode.allocateBuffer(size, alignment);
+      auto binding = localNode.bindBufferToHost(buffer);
+  
+  pfree:
+    tserver: "env::System::pfree(resource)"
+    tng: "// Automatic with RAII - buffer deallocated when out of scope"
+  
+  resource_ptr:
+    tserver: "resource->ptr()"
+    tng: "binding.getHostVirtualAddress()"
+  
+  resource_base:
+    tserver: "resource->base()"
+    tng: "buffer.getAddress()"
+  
+  resource_size:
+    tserver: "resource->size()"
+    tng: "buffer.getSize()"
+
+# Register Access
+registers:
+  reg_read:
+    tserver: "gpu->RegRead(offset)"
+    tng: "m_device->read32(offset) // or use engine API"
+  
+  reg_write:
+    tserver: "gpu->RegWrite(offset, value)"
+    tng: "m_device->write32(offset, value) // or use engine API"
+  
+  reg_read64:
+    tserver: "gpu->RegRead64(offset)"
+    tng: "m_device->read64(offset)"
+  
+  reg_write64:
+    tserver: "gpu->RegWrite64(offset, value)"
+    tng: "m_device->write64(offset, value)"
+
+# Logging
+logging:
+  debug:
+    tserver: 'CORE_LOG_DEBUG(m_lg) << "message" << value << std::endl'
+    tng: 'm_log.debug("message {}", value)'
+  
+  info:
+    tserver: 'CORE_LOG_INFO(m_lg) << "message"'
+    tng: 'm_log.info("message")'
+  
+  warning:
+    tserver: 'CORE_LOG_WARN(m_lg) << "message"'
+    tng: 'm_log.warning("message")'
+  
+  error:
+    tserver: 'CORE_LOG_ERROR(m_lg) << "message"'
+    tng: 'm_log.error("message")'
+  
+  perf:
+    tserver: 'CORE_LOG_PERF(m_lg) << "message"'
+    tng: 'm_log.info("message") // No specific perf log in TNG'
+
+# Assertions and Verification
+verification:
+  assert:
+    tserver: "TCoreAssert(condition)"
+    tng: "monitor.expectTrue(condition, \"description\")"
+  
+  expect_equal:
+    tserver: "if (a != b) throw std::runtime_error(\"...\")"
+    tng: "monitor.expectEqual(a, b, \"description\")"
+  
+  throw_runtime:
+    tserver: 'throw std::runtime_error("message")'
+    tng: 'return monitor; // with errors recorded'
+
+# Common Includes Mapping
+includes:
+  tserver_to_tng:
+    "<ts_test.h>": "<test/cmn/basic_monolithic_test.h>"
+    "<target.h>": "<hal/device.h>"
+    "<tcore_includes.h>": "// Not needed in TNG"
+    "<tcore_interface.h>": "// Use TNG HAL directly"
+    "<core_logger.h>": "// Built into MonolithicTest"
+    "<env_memory.h>": "// Use tng::hal buffer APIs"
+    "<env_device.h>": "<hal/device.h>"
+    "<AsicHeaders.h>": "// IP-specific headers"
