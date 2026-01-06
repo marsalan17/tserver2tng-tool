@@ -168,7 +168,8 @@ def cmd_translate(args):
     # Step 3: Generate AI context (optional)
     context_file = None
     if getattr(args, 'ai_context', False):
-        translator = AITranslator(spec_file, args.cpp_file)
+        tng_path = getattr(args, 'tng_path', None)
+        translator = AITranslator(spec_file, args.cpp_file, tng_path=tng_path)
         context_file = f"{cpp_name}_ai_context.md"
         translator.generate_context_file(context_file)
         print(f"[Step 3/3] AI context generated: {context_file}")
@@ -202,7 +203,11 @@ def cmd_ai_context(args):
     print("AI Context Generator")
     print(f"{'='*60}")
     
-    translator = AITranslator(args.spec_file, args.cpp_file, args.mappings)
+    tng_path = getattr(args, 'tng_path', None)
+    tng_output_dir = getattr(args, 'tng_output', None)
+    
+    translator = AITranslator(args.spec_file, args.cpp_file, args.mappings, 
+                              tng_path=tng_path, tng_output_dir=tng_output_dir)
     
     output_file = args.output
     if not output_file:
@@ -212,6 +217,8 @@ def cmd_ai_context(args):
     translator.generate_context_file(output_file)
     
     print(f"\nAI Context file: {output_file}")
+    if tng_path:
+        print(f"TNG Source Path: {tng_path}")
     print(f"\nUsage:")
     print(f"  1. Copy the content of {output_file}")
     print(f"  2. Paste into Claude, GPT, or your preferred AI assistant")
@@ -296,6 +303,7 @@ def cmd_ip(args):
         print("\nAvailable IPs:")
         for ip in config.get('ip_blocks', {}).keys():
             print(f"  - {ip}")
+        print("\nTip: Run 'python main.py ips --tserver-path /your/path' to discover IPs from your source")
         return
     
     print(f"\n{'='*60}")
@@ -304,16 +312,30 @@ def cmd_ip(args):
     
     # Use user-provided path or default from config
     tserver_base = args.tserver_path or config.get('paths', {}).get('tserver_base', '')
+    tng_base = getattr(args, 'tng_path', None) or config.get('paths', {}).get('tng_base', '')
     
     if not tserver_base:
-        print("\nError: TServer source path not specified!")
-        print("Use --tserver-path or set 'tserver_base' in config.yaml")
+        print("\nError: TServer source path is REQUIRED!")
+        print("\nUsage:")
+        print(f"  python main.py ip {args.ip_name} --tserver-path /path/to/diag_gpu_ariel")
+        print("\nExample:")
+        print(f"  python main.py ip {args.ip_name} --tserver-path /data/user/workspace/diag_gpu_ariel")
+        return
+    
+    if not os.path.exists(tserver_base):
+        print(f"\nError: TServer path does not exist: {tserver_base}")
         return
     
     print(f"\nConfiguration:")
     print(f"  TServer Path: {tserver_base}")
-    print(f"  Feature: {ip_config.get('feature', 'N/A')}")
-    print(f"  TNG Output: {ip_config.get('tng_output', 'N/A')}")
+    if tng_base:
+        print(f"  TNG Path:     {tng_base}")
+        tng_output_path = os.path.join(tng_base, ip_config.get('tng_output', ''))
+        print(f"  TNG Output:   {tng_output_path}")
+    else:
+        print(f"  TNG Path:     Not specified (use --tng-path for output location guidance)")
+        print(f"  TNG Output:   {ip_config.get('tng_output', 'N/A')}")
+    print(f"  Feature:      {ip_config.get('feature', 'N/A')}")
     
     suites = ip_config.get('tserver_suites', [])
     print(f"\nTServer Suites ({len(suites)}):")
@@ -377,27 +399,85 @@ def cmd_ip(args):
 
 
 def cmd_ips(args):
-    """List all available IPs"""
-    config = load_config()
-    ips = config.get('ip_blocks', {})
+    """List all available IPs by scanning the TServer source directory"""
+    tserver_path = args.tserver_path
+    
+    if not tserver_path:
+        print("\n" + "="*60)
+        print("ERROR: TServer source path is required!")
+        print("="*60)
+        print("\nUsage:")
+        print("  python main.py ips --tserver-path /path/to/diag_gpu_ariel")
+        print("\nExample:")
+        print("  python main.py ips --tserver-path /data/user/workspace/diag_gpu_ariel")
+        return
+    
+    if not os.path.exists(tserver_path):
+        print(f"\nError: TServer path does not exist: {tserver_path}")
+        return
     
     print(f"\n{'='*60}")
-    print("Available IP Blocks")
-    print(f"{'='*60}\n")
+    print("Discovering IP Blocks from TServer Source")
+    print(f"{'='*60}")
+    print(f"\nTServer Path: {tserver_path}")
     
-    print(f"{'IP':<15} {'Feature':<15} {'Suites':<8} {'Description'}")
-    print("-" * 70)
+    # Scan for suite directories
+    suite_dirs = [
+        os.path.join(tserver_path, "suite/gpu"),
+        os.path.join(tserver_path, "suite/cpu"),
+        os.path.join(tserver_path, "suite/nbridge"),
+    ]
     
-    for ip_name, ip_config in ips.items():
-        feature = ip_config.get('feature', '')
-        num_suites = len(ip_config.get('tserver_suites', []))
-        sub_chars = ', '.join(ip_config.get('sub_characteristics', [])[:2])
-        print(f"{ip_name:<15} {feature:<15} {num_suites:<8} {sub_chars}")
+    discovered_ips = {}
     
-    print(f"\nUsage:")
-    print(f"  python main.py ip <ip_name> --list                    # List IP's tests")
-    print(f"  python main.py ip <ip_name>                           # Translate IP's tests")
-    print(f"  python main.py ip <ip_name> --tserver-path /my/path   # Custom source path")
+    for suite_base in suite_dirs:
+        if not os.path.exists(suite_base):
+            continue
+        
+        category = os.path.basename(suite_base)  # gpu, cpu, nbridge
+        
+        for item in os.listdir(suite_base):
+            item_path = os.path.join(suite_base, item)
+            if os.path.isdir(item_path):
+                # Count test files
+                cpp_files = []
+                for root, dirs, files in os.walk(item_path):
+                    cpp_files.extend([f for f in files if f.endswith('.cpp') and 'test' in f.lower()])
+                
+                if cpp_files or os.path.exists(os.path.join(item_path, "CMakeLists.txt")):
+                    suite_key = f"suite/{category}/{item}"
+                    discovered_ips[item] = {
+                        'category': category,
+                        'suite_path': suite_key,
+                        'full_path': item_path,
+                        'test_files': len(cpp_files),
+                        'has_cmake': os.path.exists(os.path.join(item_path, "CMakeLists.txt"))
+                    }
+    
+    if not discovered_ips:
+        print("\nNo IP suites found in the specified path.")
+        print("Make sure the path points to the root of diag_gpu_ariel repository.")
+        return
+    
+    # Group by category
+    print(f"\n{'IP Suite':<20} {'Category':<10} {'Tests':<8} {'Path'}")
+    print("-" * 80)
+    
+    for ip_name in sorted(discovered_ips.keys()):
+        info = discovered_ips[ip_name]
+        print(f"{ip_name:<20} {info['category']:<10} {info['test_files']:<8} {info['suite_path']}")
+    
+    print(f"\n{'='*60}")
+    print(f"Found {len(discovered_ips)} IP suites in TServer source")
+    print(f"{'='*60}")
+    
+    print(f"\nNext Steps:")
+    print(f"  # List tests for a specific IP:")
+    print(f"  python main.py ip <ip_name> --list --tserver-path {tserver_path}")
+    print(f"\n  # Translate tests for an IP:")
+    print(f"  python main.py ip <ip_name> --tserver-path {tserver_path} -o output_dir")
+    print(f"\n  # Example:")
+    print(f"  python main.py ip display --list --tserver-path {tserver_path}")
 
 
 def cmd_interactive(args):
@@ -539,15 +619,17 @@ def main():
     
     subparsers = parser.add_subparsers(dest='command', help='Commands')
     
-    # IPs command (list all IPs)
-    ips_parser = subparsers.add_parser('ips', help='List all available IP blocks')
+    # IPs command (list all IPs from source)
+    ips_parser = subparsers.add_parser('ips', help='Discover IP blocks from TServer source')
+    ips_parser.add_argument('--tserver-path', '-t', required=False, help='Path to TServer source (diag_gpu_ariel) - REQUIRED')
     
     # IP command (IP-specific operations)
     ip_parser = subparsers.add_parser('ip', help='Translate tests for a specific IP block')
     ip_parser.add_argument('ip_name', help='IP block name (e.g., gfx, display, vcn, memory)')
     ip_parser.add_argument('--list', '-l', dest='list_only', action='store_true', help='List tests only')
     ip_parser.add_argument('--output', '-o', help='Output directory')
-    ip_parser.add_argument('--tserver-path', '-t', help='Path to TServer source (diag_gpu_ariel)')
+    ip_parser.add_argument('--tserver-path', '-t', help='Path to TServer source (diag_gpu_ariel) - REQUIRED')
+    ip_parser.add_argument('--tng-path', help='Path to TNG source (diag_tng_canis) - for output location guidance')
     
     # Extract command
     extract_parser = subparsers.add_parser('extract', help='Extract specification from TServer test')
@@ -568,6 +650,7 @@ def main():
     trans_parser.add_argument('--mappings', '-m', help='Path to API mappings YAML file')
     trans_parser.add_argument('--output', '-o', help='Output .cpp file')
     trans_parser.add_argument('--ai-context', action='store_true', help='Generate AI context file')
+    trans_parser.add_argument('--tng-path', help='Path to TNG source (diag_tng_canis) - for output location guidance')
     
     # AI Context command
     ai_parser = subparsers.add_parser('ai-context', help='Generate AI context for translation')
@@ -575,6 +658,8 @@ def main():
     ai_parser.add_argument('cpp_file', help='Path to original TServer .cpp file')
     ai_parser.add_argument('--mappings', '-m', help='Path to API mappings YAML file')
     ai_parser.add_argument('--output', '-o', help='Output .md file')
+    ai_parser.add_argument('--tng-path', help='Path to TNG source (diag_tng_canis) - for output location guidance')
+    ai_parser.add_argument('--tng-output', help='Relative path within TNG for output (e.g., engine/display/test)')
     
     # Batch command
     batch_parser = subparsers.add_parser('batch', help='Batch process multiple tests')
@@ -617,17 +702,16 @@ def main():
         print("\n" + "="*60)
         print("Quick Start")
         print("="*60)
-        print("\n1. List available IPs:")
-        print("   python main.py ips")
-        print("\n2. List tests for your IP:")
-        print("   python main.py ip gfx --list")
-        print("   python main.py ip display --list")
-        print("   python main.py ip vcn --list --tserver-path /your/path/diag_gpu_ariel")
+        print("\n1. Discover available IPs in your TServer source:")
+        print("   python main.py ips --tserver-path /path/to/diag_gpu_ariel")
+        print("\n2. List tests for a specific IP:")
+        print("   python main.py ip display --list --tserver-path /path/to/diag_gpu_ariel")
+        print("   python main.py ip vcn --list --tserver-path /path/to/diag_gpu_ariel")
         print("\n3. Translate all tests for your IP:")
-        print("   python main.py ip gfx -o gfx_tng_tests")
-        print("   python main.py ip vcn --tserver-path /my/workspace/diag_gpu_ariel")
+        print("   python main.py ip gfx --tserver-path /path/to/diag_gpu_ariel -o gfx_tng_tests")
         print("\n4. Translate a single test:")
         print("   python main.py translate /path/to/test.cpp --ai-context")
+        print("\nIMPORTANT: Always provide --tserver-path with your source location!")
         print("\nFor more help on a specific command:")
         print("   python main.py <command> --help")
 

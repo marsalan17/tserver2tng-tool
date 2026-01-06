@@ -9,30 +9,30 @@ A tool for translating GPU diagnostic tests from **TServer** (`diag_gpu_ariel`) 
 ```bash
 cd /data/armuhamm/workspace/tserver2tng_tool
 
-# 1. See all available IPs
-/usr/bin/python3 main.py ips
+# 1. Discover available IPs in YOUR TServer source (REQUIRED: provide your path)
+/usr/bin/python3 main.py ips --tserver-path /your/path/diag_gpu_ariel
 
-# 2. List tests for your IP (specify your source path)
-/usr/bin/python3 main.py ip gfx --list --tserver-path /your/path/diag_gpu_ariel
+# 2. List tests for a specific IP
+/usr/bin/python3 main.py ip display --list --tserver-path /your/path/diag_gpu_ariel
 
-# 3. Translate all tests for your IP
-/usr/bin/python3 main.py ip gfx --tserver-path /your/path/diag_gpu_ariel -o output_dir
+# 3. Translate all tests for your IP (provide TNG path for output location guidance)
+/usr/bin/python3 main.py ip gfx --tserver-path /your/path/diag_gpu_ariel --tng-path /your/path/diag_tng_canis -o output_dir
 ```
 
-## Setting Up Your Source Path
+## Required Paths
 
-Each user has their source code in different locations. You can specify it in two ways:
+**You MUST provide your source paths when using this tool:**
 
-### Option 1: Command Line (Recommended)
-```bash
-/usr/bin/python3 main.py ip display --tserver-path /home/myuser/workspace/diag_gpu_ariel
-```
+| Path | Description | Example |
+|------|-------------|---------|
+| `--tserver-path` | Path to your TServer source code (`diag_gpu_ariel`) | `/data/user/workspace/diag_gpu_ariel` |
+| `--tng-path` | Path to your TNG source code (`diag_tng_canis`) - for output guidance | `/data/user/workspace/diag_tng_canis` |
 
-### Option 2: Edit config.yaml
-```yaml
-paths:
-  tserver_base: "/your/workspace/diag_gpu_ariel"
-```
+### Why Paths Are Required
+
+- Each user has their source code in different locations
+- The tool dynamically scans your source to discover available IPs
+- The TNG path tells you where to place translated test files
 
 ## Supported IP Blocks
 
@@ -54,9 +54,10 @@ paths:
 
 ## Commands
 
-### `ips` - List All IPs
+### `ips` - Discover IPs from Your TServer Source
 ```bash
-/usr/bin/python3 main.py ips
+# Scan your TServer source to see what IP suites are available
+/usr/bin/python3 main.py ips --tserver-path /path/to/diag_gpu_ariel
 ```
 
 ### `ip` - IP-Specific Operations
@@ -64,8 +65,8 @@ paths:
 # List tests for an IP
 /usr/bin/python3 main.py ip gfx --list --tserver-path /path/to/diag_gpu_ariel
 
-# Translate all tests for an IP
-/usr/bin/python3 main.py ip vcn --tserver-path /path/to/diag_gpu_ariel -o vcn_output
+# Translate all tests for an IP (with TNG path for guidance)
+/usr/bin/python3 main.py ip vcn --tserver-path /path/to/diag_gpu_ariel --tng-path /path/to/diag_tng_canis -o vcn_output
 ```
 
 ### `translate` - Single Test

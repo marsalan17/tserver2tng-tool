@@ -22,7 +22,8 @@ from pathlib import Path
 class AITranslator:
     """Generates AI prompts for TServer to TNG translation"""
     
-    def __init__(self, spec_file: str, original_cpp: str, mappings_file: str = None):
+    def __init__(self, spec_file: str, original_cpp: str, mappings_file: str = None, 
+                 tng_path: str = None, tng_output_dir: str = None):
         """
         Initialize the AI translator.
         
@@ -30,9 +31,13 @@ class AITranslator:
             spec_file: Path to the test specification YAML
             original_cpp: Path to the original TServer .cpp file
             mappings_file: Path to API mappings YAML
+            tng_path: Path to TNG source code (diag_tng_canis)
+            tng_output_dir: Relative path within TNG for output (e.g., engine/display/test)
         """
         self.spec_file = spec_file
         self.original_cpp = original_cpp
+        self.tng_path = tng_path
+        self.tng_output_dir = tng_output_dir
         
         # Load specification
         with open(spec_file, 'r') as f:
@@ -241,13 +246,37 @@ Provide an overview of the translation strategy for this test, including:
         
         content = []
         
-        content.append(f"""# AI Translation Context: {class_name}
+        # Add TNG output path information if available
+        tng_location_info = ""
+        if self.tng_path and self.tng_output_dir:
+            full_tng_path = os.path.join(self.tng_path, self.tng_output_dir)
+            tng_location_info = f"""
+## TNG Output Location
 
+**Your TNG Source Path**: `{self.tng_path}`
+**Target Directory**: `{self.tng_output_dir}`
+**Full Path**: `{full_tng_path}`
+
+Place the translated test file in: `{full_tng_path}/`
+"""
+        elif self.tng_output_dir:
+            tng_location_info = f"""
+## TNG Output Location
+
+**Target Directory**: `{self.tng_output_dir}`
+
+> **Note**: TNG source path was not provided. To get the full path, run the tool with:
+> `--tng-path /your/path/to/diag_tng_canis`
+"""
+        
+        content.append(f"""# AI Translation Context: {class_name}
+{tng_location_info}
 ## 1. Test Overview
 
 **Test Name**: {self.spec.get('test_name', '')}
 **Class Name**: {class_name}
 **Suite**: {self.spec.get('suite_id', '')} - {self.spec.get('suite_description', '')}
+**Original File**: `{self.original_cpp}`
 
 ### Parameters
 """)
