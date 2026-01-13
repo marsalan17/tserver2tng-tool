@@ -1,156 +1,230 @@
 # TServer to TNG Test Translator Tool
 
-A tool for translating GPU diagnostic tests from **TServer** (`diag_gpu_ariel`) to **TNG** (`diag_tng_canis`).
+A tool for translating GPU diagnostic tests from **TServer** (`diag_gpu_ariel`) to **TNG** (`diag_tng`).
 
-**Version**: 1.0.0
+**Version**: 2.0.0
+
+---
 
 ## Quick Start
 
 ```bash
 cd /data/armuhamm/workspace/tserver2tng_tool
 
-# 1. Discover available IPs in YOUR TServer source (REQUIRED: provide your path)
-/usr/bin/python3 main.py ips --tserver-path /your/path/diag_gpu_ariel
+# 1. Discover available IPs in your TServer source
+python main.py ips --tserver-path /path/to/diag_gpu_ariel
 
 # 2. List tests for a specific IP
-/usr/bin/python3 main.py ip display --list --tserver-path /your/path/diag_gpu_ariel
+python main.py ip display --list --tserver-path /path/to/diag_gpu_ariel
 
-# 3. Translate all tests for your IP (provide TNG path for output location guidance)
-/usr/bin/python3 main.py ip gfx --tserver-path /your/path/diag_gpu_ariel --tng-path /your/path/diag_tng_canis -o output_dir
+# 3. Translate a specific test
+python main.py translate /path/to/test.cpp --tng-path /path/to/diag_tng
 ```
 
-## Required Paths
-
-**You MUST provide your source paths when using this tool:**
-
-| Path | Description | Example |
-|------|-------------|---------|
-| `--tserver-path` | Path to your TServer source code (`diag_gpu_ariel`) | `/data/user/workspace/diag_gpu_ariel` |
-| `--tng-path` | Path to your TNG source code (`diag_tng_canis`) - for output guidance | `/data/user/workspace/diag_tng_canis` |
-
-### Why Paths Are Required
-
-- Each user has their source code in different locations
-- The tool dynamically scans your source to discover available IPs
-- The TNG path tells you where to place translated test files
-
-## Supported IP Blocks
-
-| IP | Feature | TServer Suites |
-|----|---------|----------------|
-| `gfx` | Graphics Core | gfxutil, stress3d, raytracing |
-| `display` | Display/DCN | display, dpp, mpc, otg, dsc, dout, dmu, dwb |
-| `vcn` | Video Codec | vcn |
-| `memory` | Memory Controller | umc, hdp |
-| `sdma` | SDMA Engine | sdma, nsdma |
-| `pm` | Power Management | pm |
-| `pcie` | PCIe | pcie |
-| `iommu` | IOMMU | iommu, iohc |
-| `security` | Security/PSP | asp, pspif |
-| `df` | Data Fabric | df |
-| `acp` | Audio | acp_az |
-| `phy` | PHY | phy |
-| `framework` | Framework | fss, tcore2 |
+---
 
 ## Commands
 
-### `ips` - Discover IPs from Your TServer Source
+### 1. `ips` - Discover Available IPs
+
+Scans your TServer source to find all available IP test suites.
+
 ```bash
-# Scan your TServer source to see what IP suites are available
-/usr/bin/python3 main.py ips --tserver-path /path/to/diag_gpu_ariel
+python main.py ips --tserver-path /data/armuhamm/workspace/diag_gpu_ariel
 ```
 
-### `ip` - IP-Specific Operations
-```bash
-# List tests for an IP
-/usr/bin/python3 main.py ip gfx --list --tserver-path /path/to/diag_gpu_ariel
+**Output:**
+```
+============================================================
+Discovering IP Blocks from TServer Source
+============================================================
 
-# Translate all tests for an IP (with TNG path for guidance)
-/usr/bin/python3 main.py ip vcn --tserver-path /path/to/diag_gpu_ariel --tng-path /path/to/diag_tng_canis -o vcn_output
+TServer Path: /data/armuhamm/workspace/diag_gpu_ariel
+
+IP Suite             Category   Tests    Path
+------------------------------------------------------------------------
+display              gpu        15       suite/gpu/display
+mpc                  gpu        8        suite/gpu/mpc
+vcn                  gpu        12       suite/gpu/vcn
+...
+
+Found 25 IP suites
 ```
 
-### `translate` - Single Test
+---
+
+### 2. `ip --list` - List Tests for an IP
+
+Lists all test files for a specific IP block.
+
 ```bash
-/usr/bin/python3 main.py translate /path/to/test.cpp --ai-context
+python main.py ip display --list --tserver-path /data/armuhamm/workspace/diag_gpu_ariel
+python main.py ip mpc --list --tserver-path /data/armuhamm/workspace/diag_gpu_ariel
 ```
 
-### `batch` - Batch Process Directory
-```bash
-/usr/bin/python3 main.py batch /path/to/suite -o output_dir
+**Output:**
+```
+============================================================
+Tests for IP: MPC
+============================================================
+
+TServer Path: /data/armuhamm/workspace/diag_gpu_ariel
+Suites: suite/gpu/mpc
+
+Found 8 tests:
+
+#    Test Name                                File
+--------------------------------------------------------------------------------
+1    MpccModeTest                             mpcc_mode_test.cpp
+2    MpccSrcDstMuxTest                        mpcc_src_dst_mux_test.cpp
+...
 ```
 
-### `list` - Discover Tests
+---
+
+### 3. `translate` - Translate a Test
+
+Translates a specific TServer test file to TNG format.
+
 ```bash
-/usr/bin/python3 main.py list /path/to/suite/gpu/fss
+python main.py translate /path/to/test.cpp --tng-path /path/to/diag_tng
 ```
+
+**Example:**
+```bash
+python main.py translate \
+    /data/armuhamm/workspace/diag_gpu_ariel/suite/gpu/mpc/mpcc_mode_test.cpp \
+    --tng-path /data/armuhamm/workspace/diag_tng.github
+```
+
+**Output:**
+```
+============================================================
+TServer to TNG Test Translation
+============================================================
+
+Source: /data/armuhamm/workspace/diag_gpu_ariel/suite/gpu/mpc/mpcc_mode_test.cpp
+TNG Reference Found: /data/armuhamm/workspace/diag_tng.github/engine/display/test/stimulus/mpc/mpcc_mode_stimulus.cpp
+
+[Step 1/3] Extracting specification...
+  Specification: mpcc_mode_test_spec.yaml
+  - Parameters: 8
+  - Variations: 22
+
+[Step 2/3] Generating TNG test skeleton...
+  TNG Skeleton: mpcc_mode_test_tng.cpp
+
+[Step 3/3] Generating AI translation context...
+  AI Context: mpcc_mode_test_ai_context.md
+
+============================================================
+Translation Complete!
+============================================================
+
+Generated Files:
+  1. mpcc_mode_test_spec.yaml
+  2. mpcc_mode_test_tng.cpp
+  3. mpcc_mode_test_ai_context.md
+
+TNG Reference Test:
+  /data/armuhamm/workspace/diag_tng.github/engine/display/test/stimulus/mpc/mpcc_mode_stimulus.cpp
+
+  The AI context includes this existing TNG test as a reference.
+  Use it to understand the TNG patterns and conventions.
+```
+
+---
 
 ## Output Files
 
 | File | Description |
 |------|-------------|
-| `*_spec.yaml` | Test specification (parameters, variations) |
-| `*_tng_test.cpp` | Generated TNG test skeleton |
+| `*_spec.yaml` | Extracted test specification (parameters, variations) |
+| `*_tng.cpp` | Generated TNG test skeleton (starting template) |
 | `*_ai_context.md` | AI context for Claude/GPT assisted translation |
-| `translation_report.md` | Batch processing summary |
 
-## Using AI Context for Translation
+---
 
-1. Generate with: `--ai-context` flag
-2. Open the generated `*_ai_context.md` file
-3. Copy to Claude/GPT/Cursor
-4. Ask: "Please translate variation 1 to TNG format"
-5. Review and integrate the code
+## Using the AI Context
 
-## Examples by IP
+The `*_ai_context.md` file contains everything needed for AI-assisted translation:
 
-### GFX
-```bash
-/usr/bin/python3 main.py ip gfx --list --tserver-path /data/user/diag_gpu_ariel
-/usr/bin/python3 main.py ip gfx --tserver-path /data/user/diag_gpu_ariel -o gfx_tng
-```
+1. **Open the file** in your editor
+2. **Copy the entire content** to Claude, GPT, or Cursor
+3. **Ask specific questions** like:
+   - "Translate the Main() function to TNG format"
+   - "Convert variation 3 using the TNG reference as a guide"
+   - "How should I handle the memory allocation?"
+4. **Review and integrate** the generated code
 
-### Display
-```bash
-/usr/bin/python3 main.py ip display --list --tserver-path /data/user/diag_gpu_ariel
-/usr/bin/python3 main.py ip display --tserver-path /data/user/diag_gpu_ariel -o display_tng
-```
+### If TNG Reference is Found
 
-### VCN
-```bash
-/usr/bin/python3 main.py ip vcn --list --tserver-path /data/user/diag_gpu_ariel
-/usr/bin/python3 main.py ip vcn --tserver-path /data/user/diag_gpu_ariel -o vcn_tng
-```
+When the tool finds an existing TNG test that corresponds to your TServer test, it includes the full TNG code in the AI context. This is extremely helpful because:
+
+- You can see exact patterns used in your codebase
+- The AI can match the coding style
+- API usage examples are real and tested
+
+---
+
+## TNG Reference Lookup
+
+The tool automatically searches for corresponding TNG tests using these patterns:
+
+| TServer Path | TNG Search Patterns |
+|--------------|---------------------|
+| `suite/gpu/mpc/mpcc_mode_test.cpp` | `engine/*/test/stimulus/mpc/mpcc_mode*.cpp` |
+| | `engine/*/test/mpc/mpcc_mode*.cpp` |
+| | `**/mpcc_mode*.cpp` |
+
+---
+
+## Supported IP Blocks
+
+The tool recognizes these IP blocks (configured in `config.yaml`):
+
+| IP | TServer Suites | TNG Location |
+|----|----------------|--------------|
+| `display` | display, dpp, mpc, otg, dsc, dout | engine/display/test |
+| `gfx` | gfxutil, stress3d, raytracing | engine/gfx/test |
+| `vcn` | vcn | engine/vcn/test |
+| `memory` | umc, hdp | engine/memorysubsystem/test |
+| `sdma` | sdma, nsdma | engine/gfx/sdma/test |
+| `pm` | pm | engine/pmm/test |
+| `pcie` | pcie | engine/pci/test |
+| `iommu` | iommu, iohc | engine/iohub/test |
+| `security` | asp, pspif | engine/securitylib/test |
+| `df` | df | engine/support/test |
+
+---
 
 ## File Structure
 
 ```
 tserver2tng_tool/
-├── main.py              # Main CLI
-├── spec_extractor.py    # TServer parser
-├── tng_generator.py     # TNG code generator
+├── main.py              # Main CLI (3 commands: ips, ip, translate)
+├── spec_extractor.py    # TServer test parser
+├── tng_generator.py     # TNG skeleton generator
 ├── ai_translator.py     # AI context generator
-├── batch_processor.py   # Batch processing
+├── batch_processor.py   # Test discovery helper
 ├── api_mappings.yaml    # API translation rules
-├── config.yaml          # IP configurations (customize paths here)
-├── requirements.txt     # Dependencies
+├── config.yaml          # IP block configurations
+├── requirements.txt     # Python dependencies
 └── README.md            # This file
 ```
 
-## Adding a New IP
+---
 
-Edit `config.yaml` and add your IP under `ip_blocks`:
+## Requirements
 
-```yaml
-ip_blocks:
-  my_new_ip:
-    tserver_suites:
-      - "suite/gpu/my_suite"
-    tng_output: "engine/my_ip/test"
-    feature: "my_feature"
-    sub_characteristics:
-      - "sub1"
-      - "sub2"
+- Python 3.8+
+- PyYAML
+
+```bash
+pip install -r requirements.txt
 ```
+
+---
 
 ## Support
 
